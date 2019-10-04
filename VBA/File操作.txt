@@ -1,0 +1,88 @@
+﻿Option Explicit
+Const TargetTxt1 As String = "abc"
+Const TargetTxt2 As String = "xyz"
+Const NewText As String = "置換文字列"
+Const BackUpPath As String = "C:\work\test\bkup\"
+'--------------------------------------------------
+'func   = 禁止文字列置換
+'date   = 19.10.07
+'memo   = 参照設定で「Microsoft Scripting Runtime」を有効
+'--------------------------------------------------
+Private Function EditTxtFile(FilePath)
+ Dim FSO         As FileSystemObject 'ファイルシステムオブジェクト
+ Dim Txt         As TextStream       'テキストストリームオブジェクト
+ Dim buf_strTxt  As String           '読み込みバッファ
+ Dim BkupFile
+On Error GoTo EditTxtFile_Err:
+
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set Txt = FSO.OpenTextFile(FilePath, ForReading)
+    buf_strTxt = Txt.ReadAll
+    Txt.Close
+
+    '*** BKUPファイル作成 ***
+    'BkupFile = Replace(FilePath, ".txt", "_bkup.txt")
+    'FileCopy FilePath, BkupFile
+
+    '*** 置換処理 ***
+    buf_strTxt = Replace(buf_strTxt, TargetTxt1, NewText, , , vbBinaryCompare)
+
+    '*** 書込み用txtファイル作成 ***
+    Set Txt = FSO.CreateTextFile(FilePath, True, True)
+    Txt.Write buf_strTxt
+    Txt.Close
+
+    EditTxtFile = True
+    Exit Function
+
+EditTxtFile_Err:
+    MsgBox ("Error Number : " & Err.Number & vbCrLf & Err.Description)
+    EditTxtFile = False
+    Exit Function
+End Function
+'--------------------------------------------------
+'func   = Main
+'date   = 19.10.07
+'--------------------------------------------------
+Private Sub Main()
+Dim sheet      As Object
+Dim FolderPath As String
+Dim FSO        As Object
+Dim Files, Text, FileName, CRLF
+Dim T_EditChk
+On Error GoTo Err_Check_Main
+    
+    CRLF = Chr(13) & Chr(10) '改行
+    
+    '*** セル値(フルパス)取得 ***
+    Set sheet = Worksheets("Sheet1")
+    FolderPath = sheet.Range("A2").Value
+
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set Files = FSO.GetFolder(FolderPath).Files
+    If Files.Count < 1 Then
+        MsgBox ("対象ソース用txtファイルなし。")
+        Exit Sub
+    End If
+
+    '*** フォルダ内の全txtファイルについて処理 ***
+    For Each FileName In Files
+        
+        '*** BackUp生成 ***
+        'Call ExecuteBackUp(FileName)
+        
+        '*** 禁止文字列置換処理 ***
+        MsgBox (FileName)
+        If EditTxtFile(FileName) = False Then
+            MsgBox (FileName & CRLF & "文字列置換処理失敗。")
+            Exit Sub
+        End If
+        
+    Next FileName
+    
+    Exit Sub
+Err_Check_Main:
+    MsgBox (FileName & CRLF & Error)
+    Exit Sub
+End Sub
+
