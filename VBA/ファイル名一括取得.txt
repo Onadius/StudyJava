@@ -1,0 +1,31 @@
+'*************************************
+'ファイル名一括取得
+'*************************************
+Public Sub GetFileName()
+Dim folder_pass As String
+Dim file_name   As String
+Dim msg         As String
+Dim ws As Worksheet
+
+    Set ws = ThisWorkbook.Worksheets("Sheet1")
+
+    folder_pass = "C:\Tmp\prc\*"
+    file_name = Dir(folder_pass, vbDirectory)
+    
+    'ループ : ファイル名検索
+    Dim i As Integer
+    Do While file_name <> ""
+        i = i + 1
+        If InStr(file_name, ".") <> 1 Then
+            '-- 一覧で取得 --
+            msg = msg & file_name & vbCrLf
+            
+            '-- セルへ直接出力 --
+            ws.Cells(i, 6).Value = file_name
+            
+        End If
+        file_name = Dir() '引数なしで次のファイル名、フォルダ名を取得
+    Loop
+    
+    MsgBox msg
+End Sub
