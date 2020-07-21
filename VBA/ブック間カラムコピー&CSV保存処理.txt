@@ -1,0 +1,135 @@
+Option Explicit
+Const TargetTxt1 As String = "&" '禁止文字列1
+Const TargetTxt2 As String = "禁止文字列2" '禁止文字列2
+Const NewText As String = "^&" '置換文字列1
+'--------------------------------------------------
+'func   = 禁止文字列置換
+'date   = 19.10.07
+'memo   = 参照設定で「Microsoft Scripting Runtime」を有効
+'--------------------------------------------------
+Private Function EditTxtFile(FilePath)
+ Dim FSO         As FileSystemObject 'ファイルシステムオブジェクト
+ Dim Txt         As TextStream       'テキストストリームオブジェクト
+ Dim buf_strTxt  As String           '読み込みバッファ
+ Dim BkupFile
+On Error GoTo EditTxtFile_Err:
+
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set Txt = FSO.OpenTextFile(FilePath, ForReading)
+    buf_strTxt = Txt.ReadAll
+    Txt.Close
+
+    '*** BKUPファイル作成 ***
+    'BkupFile = Replace(FilePath, ".txt", "_bkup.txt")
+    'FileCopy FilePath, BkupFile
+
+    '*** 置換処理 ***
+    buf_strTxt = Replace(buf_strTxt, TargetTxt1, NewText, , , vbBinaryCompare)
+
+    '*** 書込み用txtファイル作成 ***
+    Set Txt = FSO.CreateTextFile(FilePath, True, True)
+    Txt.Write buf_strTxt
+    Txt.Close
+    
+    
+
+    EditTxtFile = True
+    Exit Function
+
+EditTxtFile_Err:
+    MsgBox ("Error Number : " & Err.Number & vbCrLf & Err.Description)
+    EditTxtFile = False
+    Exit Function
+End Function
+'*************************************
+'func   = MAIN : 内訳 変換 & CSV生成
+'date   = 20.07.16
+'memo   = 適地
+'*************************************
+Public Sub ColumnsCopy()
+Dim CRLF
+Dim folder_pass As String
+Dim file_name   As String
+Dim csv_pass    As String
+Dim csv_name    As String
+Dim dataBook     As Workbook
+Dim dataSheet    As Worksheet
+Dim dataRange
+Dim utiwakeBook  As Workbook
+Dim utiwakeSheet As Worksheet
+Dim iniSheet     As Worksheet
+    
+    '改行コード
+    CRLF = Chr(13) & Chr(17)
+    
+    '-- フォルダパスとファイル名取得 --
+    Set utiwakeSheet = ThisWorkbook.Worksheets("Utiwake")
+    Set iniSheet = ThisWorkbook.Worksheets("INI")
+    folder_pass = iniSheet.Cells(1, 2).Value
+    file_name = iniSheet.Cells(2, 2).Value
+    csv_pass = iniSheet.Cells(3, 2).Value
+    csv_name = iniSheet.Cells(4, 2).Value
+    'MsgBox folder_pass & "\" & file_name
+    
+    
+    '-- 提供データ作成元Excel 開く --
+    On Error GoTo Error1
+    Workbooks.Open folder_pass & "\" & file_name
+    Set dataBook = Workbooks(file_name)
+    Set dataSheet = dataBook.ActiveSheet
+    'Set dataRange = dataSheet.Range("BF:BF")
+    
+    '** 内訳変換の実施 **
+    '1. 変換前値(列)を内訳変換シートへコピペ
+    dataSheet.Range("BF:BF").Columns(1).Copy Destination:=utiwakeSheet.Range("A:A").Columns("A")
+    Application.CutCopyMode = False
+    
+    '2. 変換後値(列)を適地データシートの内訳列へコピペ(値のみじゃねえとあかん)
+    'utiwakeSheet.Range("B:B").Columns(1).Copy Destination:=dataSheet.Range("BF:BF").Columns(1)
+    utiwakeSheet.Range("B:B").Columns(1).Copy
+    dataSheet.Range("BF:BF").Columns(1).PasteSpecial Paste:=xlPasteValues
+    Application.CutCopyMode = False
+    
+    '3. 内訳変換後提供データ上書き保存
+    On Error Resume Next
+    dataBook.Save
+    If Err.Number > 0 Then
+        MsgBox "内訳変換後の提供データ保存に失敗ぺこ"
+        Exit Sub
+    End If
+    
+    
+    '4. CSVファイル の生成
+    On Error Resume Next
+    dataBook.SaveAs Filename:=csv_pass & "\" & csv_name, _
+                    FileFormat:=xlCSV
+    If Err.Number > 0 Then
+        MsgBox "CSV生成に失敗したぺこ"
+        Exit Sub
+    End If
+    
+    '5. 内訳変換後提供データ上書き保存
+    On Error Resume Next
+    dataBook.Close SaveChanges:=True
+    If Err.Number > 0 Then
+        MsgBox "提供データexcelのclose処理に失敗ぺこ"
+        Exit Sub
+    End If
+    
+    
+'    '6. CSVファイル 文字列置換処理
+'    If EditTxtFile(csv_pass & "\" & csv_name) = False Then
+'        MsgBox ("文字列置換処理失敗。")
+'        Exit Sub
+'    End If
+    
+    
+    MsgBox "完了ぺこ"
+    Exit Sub
+
+Error1:
+    Dim errMsg1
+    errMsg1 = "パスとファイル名要確認です。" & CRLF & file_name & "開いていたら閉じてください。"
+    MsgBox errMsg1, vbExclamation
+    Exit Sub
+End Sub
